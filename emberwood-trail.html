@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Emberwood Trail</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<style>
+  :root{
+    --bg:      #232a2e;
+    --panel:   #2b3339;
+    --panel2:  #313a40;
+    --fg:      #d3c6aa;
+    --dim:     #859289;
+    --green:   #a7c080;
+    --aqua:    #83c092;
+    --yellow:  #dbbc7f;
+    --orange:  #e69875;
+    --red:     #e67e80;
+    --purple:  #d699b6;
+    --blue:    #7fbbb3;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0; height:100%;
+    background: radial-gradient(ellipse at center, #1c2225 0%, #14181a 100%);
+    color: var(--fg);
+    font-family: "JetBrains Mono","Cascadia Code",ui-monospace,Consolas,monospace;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .crt-wrap{
+    width:min(94vw, 860px);
+    margin:24px auto;
+  }
+  .titlebar{
+    background: var(--panel2);
+    border-radius: 8px 8px 0 0;
+    padding: 8px 14px;
+    display:flex; align-items:center; gap:8px;
+    border: 1px solid #1a1f22;
+    border-bottom:none;
+  }
+  .dot{ width:11px; height:11px; border-radius:50%; }
+  .dot.r{ background: var(--red); }
+  .dot.y{ background: var(--yellow); }
+  .dot.g{ background: var(--green); }
+  .titlebar span{
+    margin-left:8px; color:var(--dim); font-size:12px; letter-spacing:1px;
+  }
+  .term{
+    position:relative;
+    background: var(--bg);
+    border: 1px solid #1a1f22;
+    border-radius: 0 0 8px 8px;
+    padding: 22px 26px 18px;
+    min-height: 560px;
+    overflow:hidden;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.6), inset 0 0 60px rgba(0,0,0,0.35);
+    text-shadow: 0 0 6px rgba(211,198,170,0.20);
+  }
+  .term::before{
+    content:"";
+    position:absolute; inset:0;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0.14) 0px,
+      rgba(0,0,0,0.14) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events:none;
+    mix-blend-mode: multiply;
+  }
+  .term::after{
+    content:"";
+    position:absolute; inset:0;
+    box-shadow: inset 0 0 120px rgba(0,0,0,0.55);
+    pointer-events:none;
+  }
+  .content{ position:relative; z-index:1; }
+
+  h1.banner{
+    font-size: 11px; line-height:1.15; white-space:pre;
+    color: var(--green); margin: 0 0 10px; text-align:center;
+    text-shadow: 0 0 10px rgba(167,192,128,0.35);
+  }
+  .subtitle{ text-align:center; color:var(--dim); font-size:13px; margin-bottom:18px; letter-spacing:2px; }
+
+  .flavor{ color: var(--fg); font-size:14px; line-height:1.6; margin: 10px 0 18px; white-space:pre-wrap; }
+  .zone-name{ color:var(--yellow); font-size:13px; letter-spacing:2px; text-transform:uppercase; }
+  .zone-sub{ color:var(--dim); font-size:12px; margin-bottom:10px; }
+  .art{ white-space:pre; font-size:13px; line-height:1.2; color:var(--aqua); text-align:center; margin: 6px 0 16px; min-height: 96px; }
+
+  .bars{ margin: 14px 0 18px; }
+  .bar-row{ display:flex; align-items:center; gap:10px; font-size:13px; margin: 4px 0; }
+  .bar-label{ width:64px; color:var(--dim); }
+  .bar-track{ font-family:monospace; letter-spacing:0px; }
+  .bar-num{ width:56px; text-align:right; color:var(--dim); }
+  .bar-health .bar-track{ color: var(--red); }
+  .bar-hunger .bar-track{ color: var(--yellow); }
+  .bar-energy .bar-track{ color: var(--blue); }
+  .bar-warmth .bar-track{ color: var(--purple); }
+
+  .dayline{ color:var(--dim); font-size:13px; margin-bottom: 14px; }
+
+  .menu{ display:flex; flex-direction:column; gap:6px; margin-bottom: 14px; }
+  .menu button{
+    all: unset;
+    cursor:pointer;
+    font-family: inherit; font-size:14px;
+    color: var(--fg);
+    padding: 7px 10px;
+    border-radius:4px;
+    display:flex; gap:10px;
+  }
+  .menu button:hover, .menu button:focus-visible{
+    background: rgba(167,192,128,0.10);
+    color: var(--green);
+  }
+  .menu button .k{ color: var(--orange); width:18px; }
+  .menu button:disabled{ opacity:0.35; cursor:default; }
+  .menu button:disabled:hover{ background:none; color:var(--fg); }
+
+  .log{
+    border-top: 1px dashed #3a4249;
+    padding-top: 10px; margin-top:6px;
+    max-height: 120px; overflow-y:auto;
+    font-size: 13px; color: var(--dim);
+  }
+  .log div{ margin: 2px 0; }
+  .log .ev{ color: var(--orange); }
+  .log .warn{ color: var(--red); }
+
+  .prompt-line{ color: var(--green); font-size:13px; margin-top:10px; }
+  .cursor{ display:inline-block; width:8px; height:14px; background:var(--green); vertical-align:-2px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink{ 50%{ opacity:0; } }
+
+  .gate, .end{
+    text-align:center; padding: 30px 10px;
+  }
+  .gate button, .end button, .toolbar button{
+    all:unset; cursor:pointer;
+    border:1px solid var(--green); color:var(--green);
+    padding:10px 20px; border-radius:4px; font-family:inherit; font-size:14px;
+    letter-spacing:1px;
+  }
+  .gate button:hover, .end button:hover, .toolbar button:hover{
+    background: var(--green); color: #1c2225;
+  }
+
+  .toolbar{
+    position:absolute; top:10px; right:14px; z-index:2;
+    display:flex; align-items:center; gap:10px; font-size:11px; color:var(--dim);
+  }
+  .toolbar input[type=range]{ width:70px; accent-color: var(--green); }
+  .toolbar button{ padding:4px 10px; font-size:11px; }
+
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div class="crt-wrap">
+  <div class="titlebar">
+    <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+    <span>emberwood-trail — fox@woods</span>
+  </div>
+  <div class="term">
+    <div class="toolbar" id="toolbar">
+      <span id="muteLabel">♪</span>
+      <input type="range" id="volSlider" min="0" max="100" value="65">
+      <button id="muteBtn">mute</button>
+    </div>
+    <div class="content" id="content">
+
+      <div id="gateScreen" class="gate">
+        <h1 class="banner">   ______           __                                     __
+  / ____/___ ___  / /_  ___  ______      ______  ____  ____/ /
+ / __/ / __ `__ \/ __ \/ _ \/ ___/ | /| / / __ \/ __ \/ __  /
+/ /___/ / / / / / /_/ /  __/ /   | |/ |/ / /_/ / /_/ / /_/ /
+/_____/_/ /_/ /_/_.___/\___/_/    |__/|__/\____/\____/\__,_/
+
+               T R A I L</h1>
+        <p class="subtitle">A FOX'S JOURNEY HOME</p>
+        <p class="flavor" style="text-align:center">You are a young fox, torn from your family in last night's storm.
+Somewhere through the woods is home. Winter is close behind you.
+
+Each zone in these woods has its own sound — listen as you go.</p>
+        <button id="startBtn">▶ begin, with sound</button>
+      </div>
+
+      <div id="gameScreen" class="hidden">
+        <div class="zone-name" id="zoneName">—</div>
+        <div class="zone-sub" id="zoneProgress">—</div>
+        <div class="art" id="zoneArt"></div>
+
+        <div class="bars">
+          <div class="bar-row bar-health"><div class="bar-label">Health</div><div class="bar-track" id="barHealth"></div><div class="bar-num" id="numHealth"></div></div>
+          <div class="bar-row bar-hunger"><div class="bar-label">Hunger</div><div class="bar-track" id="barHunger"></div><div class="bar-num" id="numHunger"></div></div>
+          <div class="bar-row bar-energy"><div class="bar-label">Energy</div><div class="bar-track" id="barEnergy"></div><div class="bar-num" id="numEnergy"></div></div>
+          <div class="bar-row bar-warmth"><div class="bar-label">Warmth</div><div class="bar-track" id="barWarmth"></div><div class="bar-num" id="numWarmth"></div></div>
+        </div>
+
+        <div class="dayline" id="dayline">Day 1 of 24 — before the first snow falls.</div>
+
+        <div class="menu" id="menu">
+          <button data-action="travel"><span class="k">[1]</span> Press onward along the trail</button>
+          <button data-action="forage"><span class="k">[2]</span> Forage for food</button>
+          <button data-action="rest"><span class="k">[3]</span> Rest a while</button>
+          <button data-action="scout"><span class="k">[4]</span> Scout ahead / test the wind</button>
+          <button data-action="status"><span class="k">[5]</span> Check your condition (free)</button>
+        </div>
+
+        <div class="log" id="log"></div>
+        <div class="prompt-line">fox@woods &gt; <span class="cursor"></span></div>
+      </div>
+
+      <div id="endScreen" class="end hidden">
+        <div class="art" id="endArt"></div>
+        <p class="flavor" id="endText" style="text-align:center"></p>
+        <p style="color:var(--yellow); letter-spacing:2px;" id="endTitle"></p>
+        <p style="color:var(--dim); font-size:13px;" id="endStats"></p>
+        <button id="restartBtn">↺ walk the trail again</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ============================================================
+  //  ZONE DATA (mirrors the console version, plus a music profile)
+  // ============================================================
+  const ZONES = [
+    {
+      name: "Meadow's Edge",
+      length: 2, cold: 0, dangerBias: "calm",
+      art:
+`        .       .        .
+            .        ,-\\/\\_/\\-.        .
+       .          ( o.o  )          .
+        .          > ^ <   .
+              _.--''''''--._`,
+      intro: "The storm that swept you from your mother's side has passed.\nAhead, the meadow grass is tall and gold. Somewhere beyond the\ntree line — home. You just have to find the way back.",
+      music: {
+        drone: { notes:["C3","G3"], wave:"sine", vol:-24 },
+        pluck: { scale:["C4","D4","E4","G4","A4"], wave:"triangle", min:1.4, max:3.0, vol:-15, rel:0.6 },
+        bell:  { scale:["C5","E5","G5"], wave:"sine", min:4, max:8, vol:-22, rel:0.3 }
+      }
+    },
+    {
+      name: "Whispering Pines",
+      length: 3, cold: 1, dangerBias: "predator",
+      art:
+`          /\\      /\\      /\\
+         /  \\    /  \\    /  \\
+        /____\\  /____\\  /____\\
+              |  o.o  |
+              |  ^  <-- you`,
+      intro: "The pines close in overhead, and the light turns green and dim.\nEvery snapped twig sounds like a warning.",
+      music: {
+        drone: { notes:["A2","E3"], wave:"sine", vol:-22, detune:6 },
+        noise: { color:"pink", vol:-30, filterFreq:800 },
+        pluck: { scale:["A3","C4","E4","G4"], wave:"sine", min:5, max:9, vol:-18, rel:1.2 }
+      }
+    },
+    {
+      name: "The Riverbend",
+      length: 3, cold: 1, dangerBias: "storm",
+      art:
+`      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        ~~~   ,-\\/\\_/\\-.    ~~~
+      ~~~    ( o.o  )      ~~~
+        ~~~~~~ > ^ < ~~~~~~~~~~`,
+      intro: "The river runs high and cold. The scent trail is faint here,\nhalf-washed away by the current.",
+      music: {
+        drone: { notes:["D2"], wave:"sine", vol:-24 },
+        noise: { color:"white", vol:-24, filterFreq:1000, autoFilter:true, filterMin:350, filterMax:1600, rate:0.12 },
+        bell:  { scale:["D4","F4","A4","C5","D5"], wave:"sine", min:3, max:6, vol:-17, rel:0.5 }
+      }
+    },
+    {
+      name: "Old Mill Ruins",
+      length: 2, cold: 1, dangerBias: "trap",
+      art:
+`             ___
+            /___\\      /\\_/\\
+           |  |  |    ( o.o )
+           |__|__|     > ^ <
+           #  #  #  ___||___`,
+      intro: "Broken beams and rusted metal. Something about this place\nsmells of iron and old smoke. Best tread carefully.",
+      music: {
+        drone: { notes:["E2","F2"], wave:"sawtooth", vol:-27, detune:10 },
+        noise: { color:"brown", vol:-32, filterFreq:280 },
+        rareHit: { type:"metal", min:6, max:14, vol:-16 }
+      }
+    },
+    {
+      name: "Owl's Hollow",
+      length: 3, cold: 2, dangerBias: "predator",
+      art:
+`              ,   ,
+             (\\,,/)
+            ( o  o )
+             )(''')(
+            ^^^     ^^^      /\\_/\\
+                            ( o.o )
+                             > ^ <`,
+      intro: "Something with wide golden eyes watches from the high\nbranches. It hasn't decided yet whether you're worth the effort.",
+      music: {
+        drone: { notes:["C2"], wave:"sine", vol:-26 },
+        noise: { color:"pink", vol:-34, filterFreq:220 },
+        rareHit: { type:"owl", min:5, max:12, vol:-16 }
+      }
+    },
+    {
+      name: "Frostfern Hollow",
+      length: 3, cold: 3, dangerBias: "storm",
+      art:
+`        *  .  *   .  *  .   *  .
+      .   ,-\\/\\_/\\-.    *   .   *
+         ( o.o  )   .  *  .
+      *   > ^ < .    *   .   *
+        .   *  .   *   .  *`,
+      intro: "The first frost has already found this place. Your breath\nfogs in the air, and the cold sits deep in your paws.",
+      music: {
+        drone: { notes:["E3"], wave:"sine", vol:-28 },
+        noise: { color:"white", vol:-36, filterFreq:2200 },
+        bell:  { scale:["E5","G5","B5","D6"], wave:"sine", min:3, max:7, vol:-19, rel:1.4, reverbHeavy:true }
+      }
+    },
+    {
+      name: "The Denning Grounds",
+      length: 1, cold: 3, dangerBias: "calm",
+      art:
+`              home is close now.
+                    /\\_/\\
+                   ( o.o )
+                    > ^ <`,
+      intro: "The air changes. Familiar. Something in your chest aches\nand lifts at the same time. This is it — the last stretch.",
+      music: {
+        drone: { notes:["C3","E3","G3"], wave:"triangle", vol:-17 },
+        pluck: { scale:["C4","E4","G4","C5"], wave:"triangle", min:1.0, max:2.4, vol:-13, rel:0.7 },
+        bell:  { scale:["E5","G5","C6"], wave:"sine", min:2, max:4, vol:-17, rel:0.5 }
+      }
+    }
+  ];
+
+  // ============================================================
+  //  AUDIO ENGINE — one generative ambient patch per zone
+  // ============================================================
+  const Audio = (function(){
+    let masterVol = null;
+    let reverb = null;
+    let current = null; // {dispose()}
+    let started = false;
+
+    function init(){
+      if (started) return;
+      masterVol = new Tone.Volume(-6).toDestination();
+      reverb = new Tone.Reverb({ decay: 5, wet: 0.35 }).connect(masterVol);
+      started = true;
+      Tone.Transport.start();
+    }
+
+    function randomPulse(minSec, maxSec, callback){
+      let active = true;
+      let evId = null;
+      function next(){
+        if (!active) return;
+        const delay = minSec + Math.random() * (maxSec - minSec);
+        evId = Tone.Transport.scheduleOnce((time) => {
+          try { callback(time); } catch(e){ /* ignore */ }
+          next();
+        }, "+" + delay.toFixed(2));
+      }
+      next();
+      return { stop(){ active = false; if (evId !== null) Tone.Transport.clear(evId); } };
+    }
+
+    function buildZone(cfg){
+      const nodes = [];
+      const pulses = [];
+
+      if (cfg.drone) {
+        const d = cfg.drone;
+        const synth = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: d.wave, detune: d.detune || 0 },
+          envelope: { attack: 2.5, decay: 0.3, sustain: 1, release: 3 }
+        }).connect(reverb);
+        synth.volume.value = d.vol;
+        synth.triggerAttack(d.notes, Tone.now() + 0.05);
+        nodes.push(synth);
+      }
+
+      if (cfg.noise) {
+        const n = cfg.noise;
+        const noise = new Tone.Noise(n.color).start();
+        const filter = new Tone.Filter(n.filterFreq, "lowpass");
+        noise.connect(filter);
+        let outNode = filter;
+        if (n.autoFilter) {
+          const af = new Tone.AutoFilter({
+            frequency: n.rate || 0.1,
+            baseFrequency: n.filterMin || 300,
+            octaves: 2.5
+          }).start();
+          filter.connect(af);
+          outNode = af;
+        }
+        const vol = new Tone.Volume(n.vol).connect(reverb);
+        outNode.connect(vol);
+        nodes.push(noise, filter, vol);
+      }
+
+      if (cfg.pluck) {
+        const p = cfg.pluck;
+        const synth = new Tone.Synth({
+          oscillator: { type: p.wave },
+          envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: p.rel || 0.5 }
+        }).connect(reverb);
+        synth.volume.value = p.vol;
+        nodes.push(synth);
+        pulses.push(randomPulse(p.min, p.max, (time) => {
+          const note = p.scale[Math.floor(Math.random() * p.scale.length)];
+          synth.triggerAttackRelease(note, "8n", time);
+        }));
+      }
+
+      if (cfg.bell) {
+        const b = cfg.bell;
+        const synth = new Tone.Synth({
+          oscillator: { type: b.wave },
+          envelope: { attack: 0.005, decay: 1.2, sustain: 0, release: b.rel || 0.6 }
+        }).connect(reverb);
+        synth.volume.value = b.vol;
+        nodes.push(synth);
+        pulses.push(randomPulse(b.min, b.max, (time) => {
+          const note = b.scale[Math.floor(Math.random() * b.scale.length)];
+          synth.triggerAttackRelease(note, "4n", time);
+        }));
+      }
+
+      if (cfg.rareHit) {
+        const r = cfg.rareHit;
+        if (r.type === "metal") {
+          const metal = new Tone.MetalSynth({
+            envelope: { attack: 0.001, decay: 0.6, release: 0.3 },
+            harmonicity: 4.2, modulationIndex: 14, resonance: 800, octaves: 1.2
+          }).connect(reverb);
+          metal.volume.value = r.vol;
+          nodes.push(metal);
+          pulses.push(randomPulse(r.min, r.max, (time) => {
+            metal.triggerAttackRelease("8n", time);
+          }));
+        } else if (r.type === "owl") {
+          const synth = new Tone.Synth({
+            oscillator: { type: "sine" },
+            portamento: 0.3,
+            envelope: { attack: 0.2, decay: 0.4, sustain: 0.2, release: 1.5 }
+          }).connect(reverb);
+          synth.volume.value = r.vol;
+          nodes.push(synth);
+          pulses.push(randomPulse(r.min, r.max, (time) => {
+            synth.triggerAttack("A4", time);
+            synth.frequency.rampTo("D4", 0.9, time + 0.1);
+            synth.triggerRelease(time + 1.2);
+          }));
+        }
+      }
+
+      return {
+        dispose(){
+          pulses.forEach(p => p.stop());
+          nodes.forEach(n => {
+            try {
+              if (n.triggerRelease) n.triggerRelease(Tone.now() + 0.1);
+            } catch(e) {}
+            setTimeout(() => { try { n.dispose(); } catch(e){} }, 1500);
+          });
+        }
+      };
+    }
+
+    function setZone(zoneIdx){
+      if (!started) return;
+      if (current) current.dispose();
+      current = buildZone(ZONES[zoneIdx].music);
+    }
+
+    function setVolumeDb(db){
+      if (masterVol) masterVol.volume.value = db;
+    }
+
+    function setMuted(muted){
+      if (masterVol) masterVol.mute = muted;
+    }
+
+    return { init, setZone, setVolumeDb, setMuted };
+  })();
+
+  // ============================================================
+  //  GAME STATE
+  // ============================================================
+  const state = {
+    day: 1, maxDays: 24,
+    health: 100, hunger: 100, energy: 100, warmth: 100,
+    zoneIndex: 0, progress: 0, scouted: false
+  };
+
+  const el = (id) => document.getElementById(id);
+  const gateScreen = el("gateScreen");
+  const gameScreen = el("gameScreen");
+  const endScreen = el("endScreen");
+  const logEl = el("log");
+
+  function rand(min, max){ return Math.random() * (max - min) + min; }
+  function randInt(min, max){ return Math.floor(rand(min, max + 1)); }
+  function clamp(v){ return Math.max(0, Math.min(100, v)); }
+
+  function log(msg, cls){
+    const div = document.createElement("div");
+    if (cls) div.className = cls;
+    div.textContent = msg;
+    logEl.appendChild(div);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  function clearLog(){ logEl.innerHTML = ""; }
+
+  function barString(value){
+    const filled = Math.round(clamp(value) / 5);
+    return "█".repeat(filled) + "░".repeat(20 - filled);
+  }
+
+  function render(){
+    const zone = ZONES[state.zoneIndex];
+    el("zoneName").textContent = zone.name.toUpperCase();
+    el("zoneProgress").textContent = "(" + state.progress + "/" + zone.length + " through this stretch)";
+    el("zoneArt").textContent = zone.art;
+
+    el("barHealth").textContent = barString(state.health);
+    el("numHealth").textContent = Math.round(state.health) + "/100";
+    el("barHunger").textContent = barString(state.hunger);
+    el("numHunger").textContent = Math.round(state.hunger) + "/100";
+    el("barEnergy").textContent = barString(state.energy);
+    el("numEnergy").textContent = Math.round(state.energy) + "/100";
+    el("barWarmth").textContent = barString(state.warmth);
+    el("numWarmth").textContent = Math.round(state.warmth) + "/100";
+
+    el("dayline").textContent = "Day " + state.day + " of " + state.maxDays + " — before the first snow falls.";
+  }
+
+  function setMenuEnabled(enabled){
+    document.querySelectorAll("#menu button").forEach(b => b.disabled = !enabled);
+  }
+
+  // ---------------- actions ----------------
+
+  function doTravel(){
+    const zone = ZONES[state.zoneIndex];
+    log("You push onward through " + zone.name + "...");
+
+    state.hunger -= 12;
+    state.energy -= 18;
+    state.warmth -= zone.cold * 3 + 2;
+
+    rollEvent();
+
+    state.progress++;
+    state.scouted = false;
+
+    finishTurn(() => {
+      if (state.progress >= zone.length) {
+        if (state.zoneIndex === ZONES.length - 1) {
+          // handled by checkEnd
+        } else {
+          state.zoneIndex++;
+          state.progress = 0;
+          Audio.setZone(state.zoneIndex);
+          zoneTransition();
+          return;
+        }
+      }
+    });
+  }
+
+  function doForage(){
+    log("You nose through the underbrush, hunting for something to eat...");
+    state.energy -= 8;
+    state.warmth -= ZONES[state.zoneIndex].cold;
+
+    const roll = randInt(0, 99);
+    if (roll < 10) {
+      log("A thorn bush catches your paw. That stings.", "warn");
+      state.health -= 5;
+    } else if (roll < 25) {
+      log("Nothing but dirt and old leaves today.");
+    } else {
+      state.hunger += randInt(15, 30);
+      log("You find a few beetles and half a berry patch. Not bad.", "ev");
+    }
+    finishTurn();
+  }
+
+  function doRest(){
+    log("You curl up, nose tucked under your tail, and rest...");
+    const gain = randInt(20, 35);
+    state.energy += gain;
+    state.hunger -= 6;
+    state.warmth -= Math.max(0, ZONES[state.zoneIndex].cold - 1);
+    if (state.energy < 40) state.health += randInt(0, 5);
+    finishTurn();
+  }
+
+  function doScout(){
+    log("You raise your nose to the wind and listen...");
+    state.energy -= 5;
+    state.hunger -= 4;
+    state.scouted = true;
+    log("You get a better sense of what lies ahead in " + ZONES[state.zoneIndex].name + ".");
+    if (randInt(0, 99) < 30) log("You spot a safer path through the undergrowth. That should help.", "ev");
+    finishTurn();
+  }
+
+  function doStatus(){
+    log("Health " + Math.round(state.health) + ", Hunger " + Math.round(state.hunger) +
+        ", Energy " + Math.round(state.energy) + ", Warmth " + Math.round(state.warmth) +
+        " — Day " + state.day + " of " + state.maxDays + ".");
+    render();
+    // free action: no day advance, no decay
+  }
+
+  function rollEvent(){
+    const zone = ZONES[state.zoneIndex];
+    const bias = zone.dangerBias;
+    const roll = randInt(0, 99);
+    const dangerReduction = state.scouted ? 15 : 0;
+
+    if (roll < 40) {
+      log("The trail is quiet today. Just wind through the branches.");
+      return;
+    }
+
+    const eventRoll = randInt(0, 99) + dangerReduction;
+
+    if (bias === "predator" && eventRoll < 55) {
+      if (state.scouted && randInt(0, 99) < 50) {
+        log("You hear wings overhead but you already knew to keep to the shadows.");
+      } else {
+        const dmg = randInt(10, 20);
+        state.health -= dmg;
+        log("Something swoops low out of the trees! You bolt, heart hammering.", "warn");
+      }
+    } else if (bias === "storm" && eventRoll < 55) {
+      const loss = randInt(15, 25);
+      state.warmth -= loss;
+      log("Cold rain sweeps through, soaking your fur through to the skin.", "warn");
+    } else if (bias === "trap" && eventRoll < 45) {
+      if (state.scouted) {
+        log("You spot the rusted snare before it's too late and skirt around it.");
+      } else {
+        const dmg = randInt(15, 30);
+        state.health -= dmg;
+        log("Your leg catches on something cold and metal. You wrench free, hurt.", "warn");
+      }
+    } else if (roll > 85) {
+      const gain = randInt(10, 20);
+      state.warmth += gain;
+      log("You duck into a hollow log, dry and out of the wind for a moment.", "ev");
+    } else {
+      log("A long, uneventful stretch of trail. Small mercies.");
+    }
+  }
+
+  function applyPassiveDecay(){
+    if (state.hunger <= 0) { state.health -= 8; log("Your stomach is empty. This is starting to hurt.", "warn"); }
+    if (state.warmth <= 0) { state.health -= 8; log("The cold has crept all the way into your bones.", "warn"); }
+    if (state.energy <= 0) { state.health -= 5; log("You are running on nothing but instinct.", "warn"); }
+  }
+
+  function clampAll(){
+    state.health = clamp(state.health);
+    state.hunger = clamp(state.hunger);
+    state.energy = clamp(state.energy);
+    state.warmth = clamp(state.warmth);
+  }
+
+  function checkEnd(){
+    if (state.health <= 0) return "death";
+    const lastZone = ZONES[ZONES.length - 1];
+    if (state.zoneIndex === ZONES.length - 1 && state.progress >= lastZone.length) return "win";
+    if (state.day >= state.maxDays && !(state.zoneIndex === ZONES.length - 1 && state.progress >= lastZone.length)) return "snow";
+    return "";
+  }
+
+  function finishTurn(beforeRenderCallback){
+    applyPassiveDecay();
+    clampAll();
+
+    const ending = checkEnd();
+    if (ending) {
+      render();
+      setTimeout(() => showEnding(ending), 400);
+      return;
+    }
+
+    if (beforeRenderCallback) {
+      const result = beforeRenderCallback();
+      if (result === undefined) {
+        state.day++;
+      }
+    } else {
+      state.day++;
+    }
+    render();
+  }
+
+  // ---------------- screens ----------------
+
+  function zoneTransition(){
+    clearLog();
+    const zone = ZONES[state.zoneIndex];
+    log("== " + zone.name + " ==");
+    log(zone.intro);
+    render();
+  }
+
+  function showEnding(type){
+    gameScreen.classList.add("hidden");
+    endScreen.classList.remove("hidden");
+
+    const artEl = el("endArt");
+    const textEl = el("endText");
+    const titleEl = el("endTitle");
+
+    if (type === "win") {
+      artEl.textContent =
+`            /\\_/\\        /\\_/\\
+           ( o.o )      ( -.- )
+            > ^ <        > ^ <     welcome home.
+              \\\\        //
+               \\\\      //
+                \\\\____//`;
+      textEl.textContent = "Through the last stand of trees, a familiar shape rises to meet you.\nYour mother's scent. Your littermates, tumbling over each other.\nYou made it home before the snow.";
+      titleEl.textContent = "*** YOU FOUND YOUR WAY HOME ***";
+    } else if (type === "death") {
+      artEl.textContent =
+`                 /\\_/\\
+                ( x.x )
+                 > . <`;
+      textEl.textContent = "The woods go quiet around you. You don't get up again.";
+      titleEl.textContent = "*** THE TRAIL ENDS HERE ***";
+    } else {
+      artEl.textContent =
+`        *  .  *  .  *  .  *  .  *
+      .    /\\_/\\           .   *
+    *     ( o.o )    .   *    .
+      .    > ^ <   *    .   *
+        *  .   *  .  *   .  *`;
+      textEl.textContent = "The first snow falls, soft and endless, and the trail\ndisappears beneath it. You'll have to wait out the winter\nwherever you've ended up, and try again when it thaws.";
+      titleEl.textContent = "*** WINTER CAUGHT YOU ***";
+    }
+
+    el("endStats").textContent = "Days survived: " + state.day + "   Reached: " + ZONES[state.zoneIndex].name;
+  }
+
+  function resetState(){
+    state.day = 1;
+    state.health = 100; state.hunger = 100; state.energy = 100; state.warmth = 100;
+    state.zoneIndex = 0; state.progress = 0; state.scouted = false;
+  }
+
+  function startGame(){
+    resetState();
+    endScreen.classList.add("hidden");
+    gateScreen.classList.add("hidden");
+    gameScreen.classList.remove("hidden");
+    Audio.setZone(0);
+    zoneTransition();
+  }
+
+  // ---------------- wiring ----------------
+
+  document.querySelectorAll("#menu button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const action = btn.dataset.action;
+      if (action === "travel") doTravel();
+      else if (action === "forage") doForage();
+      else if (action === "rest") doRest();
+      else if (action === "scout") doScout();
+      else if (action === "status") doStatus();
+    });
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (gameScreen.classList.contains("hidden")) return;
+    if (e.key === "1") doTravel();
+    else if (e.key === "2") doForage();
+    else if (e.key === "3") doRest();
+    else if (e.key === "4") doScout();
+    else if (e.key === "5") doStatus();
+  });
+
+  el("startBtn").addEventListener("click", async () => {
+    await Tone.start();
+    Audio.init();
+    startGame();
+  });
+
+  el("restartBtn").addEventListener("click", () => {
+    endScreen.classList.add("hidden");
+    startGame();
+  });
+
+  const volSlider = el("volSlider");
+  const muteBtn = el("muteBtn");
+  let muted = false;
+  volSlider.addEventListener("input", () => {
+    const pct = parseInt(volSlider.value, 10);
+    const db = pct <= 0 ? -Infinity : (pct / 100) * 20 - 20; // 0 -> -20db, 100 -> 0db
+    Audio.setVolumeDb(db);
+  });
+  muteBtn.addEventListener("click", () => {
+    muted = !muted;
+    Audio.setMuted(muted);
+    muteBtn.textContent = muted ? "unmute" : "mute";
+  });
+
+})();
+</script>
+</body>
+</html>
